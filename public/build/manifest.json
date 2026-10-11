@@ -1,0 +1,254 @@
+{
+  "_CartesianChart-CCCtS96A.js": {
+    "file": "assets/CartesianChart-CCCtS96A.js",
+    "name": "CartesianChart",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ]
+  },
+  "_ConfirmModal-BcB1pwv3.js": {
+    "file": "assets/ConfirmModal-BcB1pwv3.js",
+    "name": "ConfirmModal",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_loader-circle-3-ijmY21.js"
+    ]
+  },
+  "_clock-3-COE80zlj.js": {
+    "file": "assets/clock-3-COE80zlj.js",
+    "name": "clock-3",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ]
+  },
+  "_createLucideIcon-aagaTONU.js": {
+    "file": "assets/createLucideIcon-aagaTONU.js",
+    "name": "createLucideIcon"
+  },
+  "_loader-circle-3-ijmY21.js": {
+    "file": "assets/loader-circle-3-ijmY21.js",
+    "name": "loader-circle",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ]
+  },
+  "_plus-DJKZ1zoG.js": {
+    "file": "assets/plus-DJKZ1zoG.js",
+    "name": "plus",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ]
+  },
+  "_refresh-cw-BlHMrZI-.js": {
+    "file": "assets/refresh-cw-BlHMrZI-.js",
+    "name": "refresh-cw",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ]
+  },
+  "_shared-BwGIO_Ff.css": {
+    "file": "assets/shared-BwGIO_Ff.css",
+    "src": "_shared-BwGIO_Ff.css"
+  },
+  "_shared-e_l-tU2b.js": {
+    "file": "assets/shared-e_l-tU2b.js",
+    "name": "shared",
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx"
+    ],
+    "css": [
+      "assets/shared-BwGIO_Ff.css"
+    ]
+  },
+  "resources/css/admin.css": {
+    "file": "assets/admin-BnFCcL-4.css",
+    "src": "resources/css/admin.css",
+    "isEntry": true
+  },
+  "resources/css/agent.css": {
+    "file": "assets/agent-Bbqv4KwR.css",
+    "src": "resources/css/agent.css",
+    "isEntry": true
+  },
+  "resources/js/admin/main.tsx": {
+    "file": "assets/main-JHcJi07q.js",
+    "name": "main",
+    "src": "resources/js/admin/main.tsx",
+    "isEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js"
+    ],
+    "dynamicImports": [
+      "resources/js/admin/pages/LoginPage.tsx",
+      "resources/js/admin/pages/DashboardPage.tsx",
+      "resources/js/admin/pages/AgentsPage.tsx",
+      "resources/js/admin/pages/analytics/OverviewPage.tsx",
+      "resources/js/admin/pages/analytics/AgentsAnalyticsPage.tsx",
+      "resources/js/admin/pages/analytics/CustomersPage.tsx",
+      "resources/js/admin/pages/analytics/CoveragePage.tsx",
+      "resources/js/admin/pages/analytics/WithdrawalsPage.tsx",
+      "resources/js/admin/pages/PaymentMethodsPage.tsx",
+      "resources/js/admin/pages/SettingsPage.tsx",
+      "resources/js/admin/pages/NoticesPage.tsx",
+      "resources/js/admin/pages/ActivityPage.tsx"
+    ],
+    "css": [
+      "assets/main-B_he7tf2.css"
+    ]
+  },
+  "resources/js/admin/pages/ActivityPage.tsx": {
+    "file": "assets/ActivityPage-BFAYXj5Q.js",
+    "name": "ActivityPage",
+    "src": "resources/js/admin/pages/ActivityPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_loader-circle-3-ijmY21.js"
+    ]
+  },
+  "resources/js/admin/pages/AgentsPage.tsx": {
+    "file": "assets/AgentsPage-DvF4fL3i.js",
+    "name": "AgentsPage",
+    "src": "resources/js/admin/pages/AgentsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_ConfirmModal-BcB1pwv3.js",
+      "_loader-circle-3-ijmY21.js",
+      "_refresh-cw-BlHMrZI-.js",
+      "_plus-DJKZ1zoG.js"
+    ]
+  },
+  "resources/js/admin/pages/DashboardPage.tsx": {
+    "file": "assets/DashboardPage-CUaGvMaL.js",
+    "name": "DashboardPage",
+    "src": "resources/js/admin/pages/DashboardPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_refresh-cw-BlHMrZI-.js",
+      "_clock-3-COE80zlj.js"
+    ]
+  },
+  "resources/js/admin/pages/LoginPage.tsx": {
+    "file": "assets/LoginPage-BgP4PxTW.js",
+    "name": "LoginPage",
+    "src": "resources/js/admin/pages/LoginPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx"
+    ]
+  },
+  "resources/js/admin/pages/NoticesPage.tsx": {
+    "file": "assets/NoticesPage-Ho4cxoVM.js",
+    "name": "NoticesPage",
+    "src": "resources/js/admin/pages/NoticesPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_ConfirmModal-BcB1pwv3.js",
+      "_loader-circle-3-ijmY21.js"
+    ]
+  },
+  "resources/js/admin/pages/PaymentMethodsPage.tsx": {
+    "file": "assets/PaymentMethodsPage-xPz-HiBS.js",
+    "name": "PaymentMethodsPage",
+    "src": "resources/js/admin/pages/PaymentMethodsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_ConfirmModal-BcB1pwv3.js",
+      "_loader-circle-3-ijmY21.js"
+    ]
+  },
+  "resources/js/admin/pages/SettingsPage.tsx": {
+    "file": "assets/SettingsPage-D0xBpwS_.js",
+    "name": "SettingsPage",
+    "src": "resources/js/admin/pages/SettingsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_loader-circle-3-ijmY21.js"
+    ]
+  },
+  "resources/js/admin/pages/analytics/AgentsAnalyticsPage.tsx": {
+    "file": "assets/AgentsAnalyticsPage-BTuIH-Wz.js",
+    "name": "AgentsAnalyticsPage",
+    "src": "resources/js/admin/pages/analytics/AgentsAnalyticsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_shared-e_l-tU2b.js"
+    ]
+  },
+  "resources/js/admin/pages/analytics/CoveragePage.tsx": {
+    "file": "assets/CoveragePage-B0mDJasI.js",
+    "name": "CoveragePage",
+    "src": "resources/js/admin/pages/analytics/CoveragePage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_shared-e_l-tU2b.js"
+    ]
+  },
+  "resources/js/admin/pages/analytics/CustomersPage.tsx": {
+    "file": "assets/CustomersPage-B6-2JZBw.js",
+    "name": "CustomersPage",
+    "src": "resources/js/admin/pages/analytics/CustomersPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_shared-e_l-tU2b.js"
+    ]
+  },
+  "resources/js/admin/pages/analytics/OverviewPage.tsx": {
+    "file": "assets/OverviewPage-CF35OGT2.js",
+    "name": "OverviewPage",
+    "src": "resources/js/admin/pages/analytics/OverviewPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "resources/js/admin/pages/DashboardPage.tsx",
+      "_shared-e_l-tU2b.js",
+      "_CartesianChart-CCCtS96A.js",
+      "_refresh-cw-BlHMrZI-.js",
+      "_clock-3-COE80zlj.js"
+    ]
+  },
+  "resources/js/admin/pages/analytics/WithdrawalsPage.tsx": {
+    "file": "assets/WithdrawalsPage-DVFw4oiJ.js",
+    "name": "WithdrawalsPage",
+    "src": "resources/js/admin/pages/analytics/WithdrawalsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "resources/js/admin/main.tsx",
+      "_shared-e_l-tU2b.js",
+      "_CartesianChart-CCCtS96A.js"
+    ]
+  },
+  "resources/js/agent/main.tsx": {
+    "file": "assets/main-Dy_SbIUl.js",
+    "name": "main",
+    "src": "resources/js/agent/main.tsx",
+    "isEntry": true,
+    "imports": [
+      "_createLucideIcon-aagaTONU.js",
+      "_plus-DJKZ1zoG.js",
+      "_clock-3-COE80zlj.js"
+    ]
+  }
+}

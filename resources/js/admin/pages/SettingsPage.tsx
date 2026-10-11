@@ -1,0 +1,957 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import api from '@/api';
+
+// --- Types ---
+
+interface Settings {
+    prefill_message: string;
+    deposit_quick_amounts: number[];
+    deposit_message: string;
+    player_id_storage_key: string;
+    player_id_dom_selector: string;
+    onboarding_video_url: string;
+    agent_hide_after_hours: number;
+    public_refresh_interval_seconds: number;
+    show_offline_agents: boolean;
+    warn_on_offline_click: boolean;
+    shuffle_live_agents: boolean;
+    // --- Withdrawal system ---
+    withdrawals_enabled: boolean;
+    withdrawal_min: number;
+    withdrawal_max_default: number;
+    withdrawal_quick_amounts: number[];
+    withdrawal_redirect_path: string;
+    withdrawal_howto_video_url: string;
+    deposit_howto_video_url: string;
+    withdrawal_no_match_behavior: string;
+    withdrawal_bank_options: string[];
+    withdrawal_require_payout_details: boolean;
+    withdrawal_message_with_amount: string;
+    withdrawal_message_no_amount: string;
+    recents_enabled: boolean;
+    recents_count: number;
+    // --- Pair rule ---
+    pair_mode_enabled: boolean;
+    pair_size: number;
+    pair_reset_enabled: boolean;
+    pair_reset_hours: number;
+}
+
+interface SettingsResponse {
+    settings: Settings;
+    embed_base_url: string;
+}
+
+const DEFAULT_SETTINGS: Settings = {
+    prefill_message: 'Hi Banabet agent, I want to deposit',
+    deposit_quick_amounts: [200, 300, 500, 1000, 2000, 5000, 10000],
+    deposit_message: 'Hi Banabet agent, I want to deposit {amount} ETB.\nMy Player ID: {player_id}',
+    player_id_storage_key: '',
+    player_id_dom_selector: '',
+    onboarding_video_url: '',
+    agent_hide_after_hours: 12,
+    public_refresh_interval_seconds: 60,
+    show_offline_agents: true,
+    warn_on_offline_click: true,
+    shuffle_live_agents: true,
+    withdrawals_enabled: true,
+    withdrawal_min: 200,
+    withdrawal_max_default: 10000,
+    withdrawal_quick_amounts: [200, 500, 1000, 3000, 5000, 10000, 25000, 50000, 100000],
+    withdrawal_redirect_path: '/sport/popup/withdrawal',
+    withdrawal_howto_video_url: '',
+    deposit_howto_video_url: '',
+    withdrawal_no_match_behavior: 'closest',
+    withdrawal_bank_options: [],
+    withdrawal_require_payout_details: true,
+    withdrawal_message_with_amount: '',
+    withdrawal_message_no_amount: '',
+    recents_enabled: true,
+    recents_count: 5,
+    pair_mode_enabled: false,
+    pair_size: 2,
+    pair_reset_enabled: false,
+    pair_reset_hours: 72,
+};
+
+const YOUTUBE_URL_REGEX = /^$|^https?:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w\-_]+/i;
+
+// --- Toggle component (inline styles — no .toggle class in admin.css) ---
+
+function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+    return (
+        <button
+            type="button"
+            onClick={() => !disabled && onChange(!value)}
+            style={{
+                width: 40,
+                height: 22,
+                borderRadius: 11,
+                border: 'none',
+                background: value ? 'var(--green)' : 'var(--bg-elev-2)',
+                position: 'relative',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                transition: 'background .2s',
+                opacity: disabled ? 0.5 : 1,
+            }}
+        >
+            <span style={{
+                position: 'absolute',
+                top: 2,
+                left: value ? 20 : 2,
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left .2s',
+            }} />
+        </button>
+    );
+}
+
+function ToggleRow({ title, desc, value, onChange, disabled }: {
+    title: string;
+    desc: string;
+    value: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '.9rem' }}>{title}</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{desc}</div>
+            </div>
+            <Toggle value={value} onChange={onChange} disabled={disabled} />
+        </div>
+    );
+}
+
+// --- Security Tab ---
+
+function SecurityTab() {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [success, setSuccess] = useState(false);
+
+    const canSubmit = currentPassword.length > 0 && newPassword.length > 0 && confirmPassword.length > 0 && !submitting;
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setSubmitting(true);
+        setErrors({});
+        setSuccess(false);
+
+        try {
+            await api.post('/api/admin/auth/change-password', {
+                current_password: currentPassword,
+                new_password: newPassword,
+                new_password_confirmation: confirmPassword,
+            });
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setSuccess(true);
+            setTimeout(() => setSuccess(false), 5000);
+        } catch (err: unknown) {
+            const resp = (err as { response?: { data?: { errors?: Record<string, string[]> } } }).response;
+            if (resp?.data?.errors) {
+                setErrors(resp.data.errors);
+            } else {
+                setErrors({ current_password: ['Something went wrong. Please try again.'] });
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <div className="panel">
+            <div className="panel-head">
+                <div className="panel-title">Change Password</div>
+            </div>
+            <form onSubmit={handleSubmit}>
+                <div className="panel-body">
+                    <div className="form-grid">
+                        <div className="form-row">
+                            <label className="form-label" htmlFor="current-password">Current Password</label>
+                            <input
+                                id="current-password"
+                                type="password"
+                                className={`form-input${errors.current_password ? ' error' : ''}`}
+                                value={currentPassword}
+                                onChange={(e) => { setCurrentPassword(e.target.value); setErrors({}); }}
+                                autoComplete="current-password"
+                            />
+                            {errors.current_password && (
+                                <div className="form-error">{errors.current_password[0]}</div>
+                            )}
+                        </div>
+                        <div className="form-row">
+                            <label className="form-label" htmlFor="new-password">New Password</label>
+                            <input
+                                id="new-password"
+                                type="password"
+                                className={`form-input${errors.new_password ? ' error' : ''}`}
+                                value={newPassword}
+                                onChange={(e) => { setNewPassword(e.target.value); setErrors({}); }}
+                                autoComplete="new-password"
+                            />
+                            {errors.new_password && (
+                                <div className="form-error">{errors.new_password[0]}</div>
+                            )}
+                            <div className="form-help">Minimum 8 characters.</div>
+                        </div>
+                        <div className="form-row">
+                            <label className="form-label" htmlFor="confirm-password">Confirm New Password</label>
+                            <input
+                                id="confirm-password"
+                                type="password"
+                                className={`form-input${errors.new_password_confirmation ? ' error' : ''}`}
+                                value={confirmPassword}
+                                onChange={(e) => { setConfirmPassword(e.target.value); setErrors({}); }}
+                                autoComplete="new-password"
+                            />
+                        </div>
+                    </div>
+                    {success && (
+                        <div style={{
+                            marginTop: 14,
+                            padding: '10px 14px',
+                            background: 'rgba(34,197,94,0.08)',
+                            border: '1px solid rgba(34,197,94,0.25)',
+                            borderRadius: 8,
+                            fontSize: '.85rem',
+                            color: 'var(--green)',
+                        }}>
+                            Password updated successfully.
+                        </div>
+                    )}
+                </div>
+                <div className="panel-foot">
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={!canSubmit}
+                    >
+                        {submitting ? <><Loader2 size={14} className="loader-spin" /> Updating&hellip;</> : 'Update Password'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+// --- Main Component ---
+
+export default function SettingsPage() {
+    const [savedSettings, setSavedSettings] = useState<Settings | null>(null);
+    const [form, setForm] = useState<Settings>(DEFAULT_SETTINGS);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState('general');
+    const [embedBaseUrl, setEmbedBaseUrl] = useState<string>('');
+    const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+
+    const fetchSettings = useCallback(() => {
+        setLoading(true);
+        setError(null);
+        api.get('/api/admin/settings')
+            .then((res) => {
+                const data = res.data.data as SettingsResponse;
+                const settings = { ...DEFAULT_SETTINGS, ...data.settings };
+                setSavedSettings(settings);
+                setForm(settings);
+                setEmbedBaseUrl(data.embed_base_url);
+            })
+            .catch(() => setError('Failed to load settings'))
+            .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        fetchSettings();
+    }, [fetchSettings]);
+
+    // Unsaved changes guard
+    const isDirty = savedSettings !== null && JSON.stringify(form) !== JSON.stringify(savedSettings);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
+
+    function updateField<K extends keyof Settings>(key: K, value: Settings[K]) {
+        setForm((prev) => ({ ...prev, [key]: value }));
+        setSaveSuccess(false);
+        setSaveError(null);
+    }
+
+    async function handleSave() {
+        if (!savedSettings || !isDirty) return;
+        setSaving(true);
+        setSaveError(null);
+        setSaveSuccess(false);
+
+        const diff: Partial<Settings> = {};
+        for (const key of Object.keys(form) as (keyof Settings)[]) {
+            if (JSON.stringify(form[key]) !== JSON.stringify(savedSettings[key])) {
+                (diff as Record<string, unknown>)[key] = form[key];
+            }
+        }
+
+        try {
+            const res = await api.patch('/api/admin/settings', diff);
+            const data = res.data.data as SettingsResponse;
+            const settings = { ...DEFAULT_SETTINGS, ...data.settings };
+            setSavedSettings(settings);
+            setForm(settings);
+            setEmbedBaseUrl(data.embed_base_url);
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
+        } catch (err: unknown) {
+            const resp = (err as { response?: { data?: { message?: string } } }).response;
+            setSaveError(resp?.data?.message ?? 'Failed to save settings');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleCopySnippet() {
+        const snippet = `<div id="banabet-agents"></div>\n<script src="${embedBaseUrl}/embed/embed.js"></script>`;
+        try {
+            await navigator.clipboard.writeText(snippet);
+            setCopyState('copied');
+            setTimeout(() => setCopyState('idle'), 2000);
+        } catch {
+            // Older browsers / restricted environments
+        }
+    }
+
+    function handleDiscard() {
+        if (savedSettings) {
+            setForm(savedSettings);
+            setSaveError(null);
+            setSaveSuccess(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="empty-state">
+                <Loader2 size={28} className="loader-spin" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="dash-error">
+                <span>{error}</span>
+                <button className="btn btn-sm btn-danger" onClick={fetchSettings}>Retry</button>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <div className="page-head">
+                <div>
+                    <div className="ly-eyebrow">CONFIGURE THE EXPERIENCE</div>
+                    <h1>Settings</h1>
+                    <div className="subtitle">Global configuration for the agent system</div>
+                </div>
+            </div>
+
+            <div className="settings-tabs">
+                {(['general', 'withdrawals', 'security'] as const).map((tab) => (
+                    <button
+                        key={tab}
+                        className={`settings-tab${activeTab === tab ? ' active' : ''}`}
+                        onClick={() => setActiveTab(tab)}
+                        aria-pressed={activeTab === tab}
+                    >
+                        {tab === 'general' ? 'General' : tab === 'withdrawals' ? 'Withdrawals' : 'Security & account'}
+                    </button>
+                ))}
+            </div>
+
+            {activeTab === 'general' ? (
+                <>
+                    {/* Telegram Pre-filled Message */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Telegram Pre-filled Message</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Deposit quick amounts <span className="hint">comma-separated; shown on the deposit questionnaire</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={form.deposit_quick_amounts.join(', ')}
+                                        onChange={(e) => updateField('deposit_quick_amounts',
+                                            e.target.value.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => !isNaN(n) && n > 0))}
+                                        placeholder="200, 300, 500, 1000"
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Deposit message with details <span className="hint">{'placeholders: {amount} {player_id} — used when the player fills the questionnaire'}</span>
+                                    </label>
+                                    <textarea
+                                        className="form-textarea"
+                                        rows={3}
+                                        style={{ fontSize: '.9rem' }}
+                                        value={form.deposit_message}
+                                        onChange={(e) => updateField('deposit_message', e.target.value)}
+                                        maxLength={600}
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Deposit how-to video URL <span className="hint">YouTube, .mp4/.webm/.mov, or Bunny Stream embed; shown on the deposit questionnaire and agent list</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className={`form-input${form.deposit_howto_video_url && !(YOUTUBE_URL_REGEX.test(form.deposit_howto_video_url) || /\.(mp4|webm|mov)(\?|$)/i.test(form.deposit_howto_video_url) || /mediadelivery\.net/i.test(form.deposit_howto_video_url)) ? ' input-error' : ''}`}
+                                        value={form.deposit_howto_video_url}
+                                        onChange={(e) => updateField('deposit_howto_video_url', e.target.value)}
+                                        placeholder="https://player.mediadelivery.net/embed/..."
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Player-ID auto-detect: storage key <span className="hint">{'optional; sessionStorage then localStorage; supports key.field for JSON (e.g. player.id)'}</span>
+                                    </label>
+                                    <input type="text" className="form-input" value={form.player_id_storage_key}
+                                        onChange={(e) => updateField('player_id_storage_key', e.target.value)} placeholder="e.g. player.id" />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Player-ID auto-detect: CSS selector <span className="hint">optional; element on the site showing the logged-in ID</span>
+                                    </label>
+                                    <input type="text" className="form-input" value={form.player_id_dom_selector}
+                                        onChange={(e) => updateField('player_id_dom_selector', e.target.value)} placeholder=".user-panel .player-id" />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">Message Sent When Player Clicks Deposit</label>
+                                    <textarea
+                                        className="form-textarea"
+                                        rows={3}
+                                        style={{ fontSize: '.9rem' }}
+                                        value={form.prefill_message}
+                                        onChange={(e) => updateField('prefill_message', e.target.value)}
+                                        maxLength={200}
+                                    />
+                                    <div className="form-help">
+                                        This message auto-fills in Telegram when a player clicks &ldquo;Deposit&rdquo; on any agent card.
+                                        Players can edit before sending.
+                                        <span style={{ float: 'right', color: form.prefill_message.length > 180 ? 'var(--gold)' : 'var(--text-dim)' }}>
+                                            {form.prefill_message.length}/200
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style={{ background: 'var(--bg-elev-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+                                    <div style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>PREVIEW</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg)', borderRadius: 8, padding: 10, border: '1px solid var(--border)' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#229ED9,#1c7fad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.9rem', flexShrink: 0 }}>
+                                            &#128232;
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '.78rem', fontWeight: 700 }}>@DOITFAST21 (Agent 7)</div>
+                                            <div style={{ fontSize: '.85rem', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
+                                                {form.prefill_message || '(empty message)'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="panel-foot">
+                            {isDirty && <button className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>Reset</button>}
+                            <button className="btn btn-primary" onClick={handleSave} disabled={!isDirty || saving}>
+                                {saving ? <><Loader2 size={14} className="loader-spin" /> Saving&hellip;</> : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Onboarding Video */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Onboarding Video</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <div style={{ fontSize: '.86rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                                    A short tutorial video shown to new visitors at the top of the embed widget.
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label" htmlFor="onboarding-video-url">Video URL (YouTube)</label>
+                                    <input
+                                        id="onboarding-video-url"
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="https://youtu.be/..."
+                                        value={form.onboarding_video_url}
+                                        onChange={(e) => updateField('onboarding_video_url', e.target.value)}
+                                    />
+                                    {form.onboarding_video_url === '' ? (
+                                        <div className="form-help">Leave empty to disable the video.</div>
+                                    ) : YOUTUBE_URL_REGEX.test(form.onboarding_video_url) ? (
+                                        <div className="form-help" style={{ color: 'var(--green)' }}>Valid YouTube URL</div>
+                                    ) : (
+                                        <div className="form-help" style={{ color: 'var(--red)' }}>Must be a valid YouTube URL (youtube.com/watch, youtu.be, or youtube.com/embed format)</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="panel-foot">
+                            {isDirty && <button className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>Reset</button>}
+                            <button className="btn btn-primary" onClick={handleSave} disabled={!isDirty || saving}>
+                                {saving ? <><Loader2 size={14} className="loader-spin" /> Saving&hellip;</> : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Install Embed */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Install Embed</div>
+                        </div>
+                        <div className="panel-body">
+                            <div style={{ marginBottom: 12, fontSize: '.86rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                                Paste this snippet anywhere on the betting site where you want the agents block to appear. The widget loads live agents and updates automatically.
+                            </div>
+
+                            <div style={{
+                                background: 'var(--bg-elev-2)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 8,
+                                padding: 14,
+                                fontFamily: "'SF Mono', ui-monospace, monospace",
+                                fontSize: '.82rem',
+                                color: 'var(--text)',
+                                whiteSpace: 'pre',
+                                overflowX: 'auto',
+                            }}>
+                                {`<div id="banabet-agents"></div>\n<script src="${embedBaseUrl}/embed/embed.js"></script>`}
+                            </div>
+
+                            <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={handleCopySnippet}
+                                >
+                                    {copyState === 'copied' ? '\u2713 Copied!' : '\uD83D\uDCCB Copy snippet'}
+                                </button>
+                                <a
+                                    href="/embed-test.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ textDecoration: 'none' }}
+                                >
+                                    &#128269; Preview embed
+                                </a>
+                            </div>
+
+                            <div style={{
+                                marginTop: 14,
+                                padding: '10px 14px',
+                                background: 'rgba(59,130,246,0.06)',
+                                border: '1px solid rgba(59,130,246,0.18)',
+                                borderRadius: 8,
+                                fontSize: '.78rem',
+                                color: 'var(--text-muted)',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 8,
+                            }}>
+                                <span>&#8505;</span>
+                                <span>The widget uses Shadow DOM, so its styling won&apos;t conflict with the host site&apos;s CSS. The current public refresh interval is <strong>{form.public_refresh_interval_seconds} seconds</strong> (configurable below).</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Player Agent Pairing (pair rule) */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Player Agent Pairing</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <ToggleRow
+                                    title="Pair rule — each player only sees their own agents"
+                                    desc="Players get a fixed set of online agents, picked at random the first time and remembered by device and Player ID. They keep getting the same agents; a new random agent is only given when none of their previous agents is online. Applies to deposits and withdrawals."
+                                    value={!!form.pair_mode_enabled}
+                                    onChange={(v) => updateField('pair_mode_enabled', v)}
+                                />
+                                <div className="form-row">
+                                    <label className="form-label">Agents shown to each player</label>
+                                    <select
+                                        className="form-select"
+                                        style={{ maxWidth: 300 }}
+                                        value={form.pair_size ?? 2}
+                                        onChange={(e) => updateField('pair_size', parseInt(e.target.value, 10))}
+                                    >
+                                        {[1, 2, 3, 4, 5].map((n) => (
+                                            <option key={n} value={n}>
+                                                {n} {n === 1 ? 'agent' : 'agents'}{n === 2 ? ' (recommended)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <ToggleRow
+                                    title="Reset pairs automatically"
+                                    desc="After the time below, a player's agents are forgotten. On their next deposit or withdrawal they get a new random pair (agents they didn't have last time first)."
+                                    value={!!form.pair_reset_enabled}
+                                    onChange={(v) => updateField('pair_reset_enabled', v)}
+                                />
+                                <div className="form-row">
+                                    <label className="form-label" htmlFor="pair-reset-hours">
+                                        Reset every <span className="hint">hours, 1&ndash;720 (72 = 3 days)</span>
+                                    </label>
+                                    <input
+                                        id="pair-reset-hours"
+                                        type="number"
+                                        className="form-input"
+                                        style={{ maxWidth: 160 }}
+                                        min={1}
+                                        max={720}
+                                        value={form.pair_reset_hours ?? 72}
+                                        onChange={(e) => updateField('pair_reset_hours', parseInt(e.target.value || '0', 10))}
+                                    />
+                                    <div className="form-help">
+                                        Counted per player, from when they first got their current pair.
+                                    </div>
+                                </div>
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: 'rgba(59,130,246,0.06)',
+                                    border: '1px solid rgba(59,130,246,0.18)',
+                                    borderRadius: 8,
+                                    fontSize: '.78rem',
+                                    color: 'var(--text-muted)',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 8,
+                                    lineHeight: 1.6,
+                                }}>
+                                    <span>&#8505;</span>
+                                    <span>
+                                        While this is on: no full agent list, no offline agents, no &ldquo;recent agents&rdquo;, no agent count, and pins are ignored.
+                                        The Player ID is taken <strong>only</strong> from the player&apos;s login &mdash; players can&apos;t type or edit it.
+                                        Switch it off to go back to the classic list instantly.
+                                    </span>
+                                </div>
+                                {form.pair_mode_enabled && !form.player_id_storage_key && !form.player_id_dom_selector && (
+                                    <div style={{
+                                        padding: '10px 14px',
+                                        background: 'rgba(245,197,24,0.08)',
+                                        border: '1px solid rgba(245,197,24,0.25)',
+                                        borderRadius: 8,
+                                        fontSize: '.8rem',
+                                        color: 'var(--gold)',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 8,
+                                        lineHeight: 1.6,
+                                    }}>
+                                        <span>&#9888;</span>
+                                        <span>
+                                            Player-ID auto-detect isn&apos;t configured (storage key and CSS selector above are both empty).
+                                            Unless the site sets <code>window.BANABET_PLAYER_ID</code>, every player will see
+                                            &ldquo;Player ID not detected&rdquo; and won&apos;t be able to continue.
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="panel-foot">
+                            {isDirty && <button className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>Discard</button>}
+                            <button className="btn btn-primary" onClick={handleSave} disabled={!isDirty || saving}>
+                                {saving ? <><Loader2 size={14} className="loader-spin" /> Saving&hellip;</> : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Agent Behavior */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Agent Behavior</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <ToggleRow
+                                    title="Show offline agents on public page"
+                                    desc="Display recently-offline agents below the live ones (faded)"
+                                    value={form.show_offline_agents}
+                                    onChange={(v) => updateField('show_offline_agents', v)}
+                                />
+                                <div className="form-row">
+                                    <label className="form-label">Hide offline agents after</label>
+                                    <select
+                                        className="form-select"
+                                        style={{ maxWidth: 300 }}
+                                        value={form.agent_hide_after_hours}
+                                        onChange={(e) => updateField('agent_hide_after_hours', parseInt(e.target.value))}
+                                    >
+                                        <option value={6}>6 hours</option>
+                                        <option value={12}>12 hours</option>
+                                        <option value={24}>24 hours</option>
+                                        <option value={72}>3 days</option>
+                                        <option value={168}>Never hide (7 days)</option>
+                                    </select>
+                                    <div className="form-help">Agents not seen within this window won&apos;t show on the public page</div>
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">Public page refresh interval</label>
+                                    <select
+                                        className="form-select"
+                                        style={{ maxWidth: 300 }}
+                                        value={form.public_refresh_interval_seconds}
+                                        onChange={(e) => updateField('public_refresh_interval_seconds', parseInt(e.target.value))}
+                                    >
+                                        <option value={30}>30 seconds</option>
+                                        <option value={60}>1 minute (recommended)</option>
+                                        <option value={120}>2 minutes</option>
+                                        <option value={180}>3 minutes</option>
+                                    </select>
+                                    <div className="form-help">How often the public page polls for live status updates</div>
+                                </div>
+                                <ToggleRow
+                                    title="Warn players before clicking offline agents"
+                                    desc="Show a confirmation dialog when player clicks an offline agent"
+                                    value={form.warn_on_offline_click}
+                                    onChange={(v) => updateField('warn_on_offline_click', v)}
+                                />
+                                <ToggleRow
+                                    title="Shuffle live agents on each refresh"
+                                    desc="Randomize order so no agent gets unfair top position"
+                                    value={form.shuffle_live_agents}
+                                    onChange={(v) => updateField('shuffle_live_agents', v)}
+                                />
+                            </div>
+                        </div>
+                        <div className="panel-foot">
+                            {isDirty && <button className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>Discard</button>}
+                            <button className="btn btn-primary" onClick={handleSave} disabled={!isDirty || saving}>
+                                {saving ? <><Loader2 size={14} className="loader-spin" /> Saving&hellip;</> : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="panel"><div className="panel-head"><div className="panel-title">Agent Notification Reminders</div></div><div className="panel-body"><p className="form-help">Reminders follow the server schedule. Each agent enables browser notifications on their own dashboard.</p><div className="ly-reminder-list"><div><b>During the day</b><span>15, 10, and 5 minutes before expiry</span></div><div><b>Sleeping hours · 23:00–07:00 EAT</b><span>5 minutes before expiry</span></div><div><b>Morning wakeup</b><span>07:00 EAT</span></div></div></div></div>
+                    {saveSuccess && (
+                        <div className="toast show success" style={{ position: 'fixed', top: 20, right: 20, zIndex: 300 }}>
+                            <span className="toast-icon">&#10003;</span>
+                            <span>Settings saved</span>
+                        </div>
+                    )}
+                    {saveError && (
+                        <div className="dash-error" style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', maxWidth: 500, zIndex: 300 }}>
+                            <span>{saveError}</span>
+                            <button className="btn btn-sm btn-danger" onClick={() => setSaveError(null)}>Dismiss</button>
+                        </div>
+                    )}
+                </>
+            ) : activeTab === 'withdrawals' ? (
+                <>
+                    {/* Withdrawal toggles */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Withdrawal system</div>
+                        </div>
+                        <div className="panel-body">
+                            <ToggleRow
+                                title="Withdrawals enabled"
+                                desc="Master switch for the whole withdrawal flow on the widget."
+                                value={form.withdrawals_enabled}
+                                onChange={(v) => updateField('withdrawals_enabled', v)}
+                            />
+                            <ToggleRow
+                                title="Require payout details"
+                                desc="Player must enter Name / Bank / Account before seeing matched agents."
+                                value={form.withdrawal_require_payout_details}
+                                onChange={(v) => updateField('withdrawal_require_payout_details', v)}
+                            />
+                            <ToggleRow
+                                title="Show closest agents when none cover the amount"
+                                desc="If on, over-max requests still show the highest-capacity agents. If off, an empty state is shown."
+                                value={form.withdrawal_no_match_behavior === 'closest'}
+                                onChange={(v) => updateField('withdrawal_no_match_behavior', v ? 'closest' : 'empty')}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Amounts */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Amounts</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <div className="form-row">
+                                    <label className="form-label">Minimum withdrawal (ETB)</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        className="form-input"
+                                        value={form.withdrawal_min}
+                                        onChange={(e) => updateField('withdrawal_min', parseInt(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Default max per agent (ETB) <span className="hint">ceiling agents can set themselves to</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        className="form-input"
+                                        value={form.withdrawal_max_default}
+                                        onChange={(e) => updateField('withdrawal_max_default', parseInt(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Quick amounts <span className="hint">comma-separated; shown on the withdrawal amount screen</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={form.withdrawal_quick_amounts.join(', ')}
+                                        onChange={(e) => updateField('withdrawal_quick_amounts',
+                                            e.target.value.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n) && n > 0))}
+                                        placeholder="200, 500, 1000, 5000"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bank options */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Bank options</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-row">
+                                <label className="form-label">
+                                    Banks in the player dropdown <span className="hint">one per line</span>
+                                </label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={6}
+                                    value={form.withdrawal_bank_options.join('\n')}
+                                    onChange={(e) => updateField('withdrawal_bank_options',
+                                        e.target.value.split('\n').map((s) => s.trim()).filter((s) => s.length > 0))}
+                                    placeholder={'Telebirr\nCBE\nAwash Bank'}
+                                />
+                                <div style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                                    These are the banks a player can pick when withdrawing. Each agent&apos;s
+                                    accepted withdrawal banks are set per-agent in the agent editor.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Redirect + video */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Redirect &amp; how-to</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-grid">
+                                <div className="form-row">
+                                    <label className="form-label">
+                                        Cashier withdrawal path <span className="hint">relative; widget prepends the current domain</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={form.withdrawal_redirect_path}
+                                        onChange={(e) => updateField('withdrawal_redirect_path', e.target.value)}
+                                        placeholder="/sport/popup/withdrawal"
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <label className="form-label">How-to video URL <span className="hint">YouTube; shown on the amount screen</span></label>
+                                    <input
+                                        type="text"
+                                        className={`form-input${form.withdrawal_howto_video_url && !(YOUTUBE_URL_REGEX.test(form.withdrawal_howto_video_url) || /\.(mp4|webm|mov)(\?|$)/i.test(form.withdrawal_howto_video_url) || /mediadelivery\.net/i.test(form.withdrawal_howto_video_url)) ? ' input-error' : ''}`}
+                                        value={form.withdrawal_howto_video_url}
+                                        onChange={(e) => updateField('withdrawal_howto_video_url', e.target.value)}
+                                        placeholder="https://www.youtube.com/watch?v=..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Message template */}
+                    <div className="panel">
+                        <div className="panel-head">
+                            <div className="panel-title">Telegram message template</div>
+                        </div>
+                        <div className="panel-body">
+                            <div className="form-row">
+                                <label className="form-label">
+                                    Message with amount <span className="hint">{'placeholders: {amount} {withdrawal_id} {name} {bank} {account}'}</span>
+                                </label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={5}
+                                    value={form.withdrawal_message_with_amount}
+                                    onChange={(e) => updateField('withdrawal_message_with_amount', e.target.value)}
+                                />
+                                <div style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                                    The account number and withdrawal ID are automatically made tap-to-copy in Telegram.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Save bar */}
+                    <div className="panel">
+                        <div className="panel-body" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                            {isDirty && <button className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>Reset</button>}
+                            <button className="btn btn-primary" onClick={handleSave} disabled={!isDirty || saving}>
+                                {saving ? <><Loader2 size={14} className="loader-spin" /> Saving&hellip;</> : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {saveSuccess && (
+                        <div className="toast show success" style={{ position: 'fixed', top: 20, right: 20, zIndex: 300 }}>
+                            <span className="toast-icon">&#10003;</span>
+                            <span>Settings saved</span>
+                        </div>
+                    )}
+                    {saveError && (
+                        <div className="dash-error" style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', maxWidth: 500, zIndex: 300 }}>
+                            <span>{saveError}</span>
+                            <button className="btn btn-sm btn-danger" onClick={() => setSaveError(null)}>Dismiss</button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <SecurityTab />
+            )}
+        </>
+    );
+}
