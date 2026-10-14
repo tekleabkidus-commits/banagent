@@ -367,7 +367,6 @@ function buildShellHTML(lang: Lang): string {
 
     <div class="agents-wrapper">
       <div class="topbar">
-        <div class="ly-wallet-brand">BANA<span>BET</span></div>
         <div class="lang-switcher" role="group" aria-label="Language">
           <button class="lang-btn${lang === 'am' ? ' active' : ''}" data-lang="am">\u12A0\u121B</button>
           <button class="lang-btn${lang === 'en' ? ' active' : ''}" data-lang="en">EN</button>

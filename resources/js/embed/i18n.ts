@@ -85,7 +85,7 @@ export interface Translations {
 
 export const I18N: Record<Lang, Translations> = {
   am: {
-    title: 'Banabet ኤጀንቶች',
+    title: 'ኤጀንቶች',
     subtitle: 'ኦንላይን ያሉ ኤጀንቶች ቅድሚያ ይታያሉ። ዲፖዚት ለማድረግ ይምረጡ።',
     live_now: 'አሁን ኦንላይን',
     recently_online: 'በቅርብ ጊዜ ኦንላይን የነበሩ',
